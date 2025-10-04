@@ -1,49 +1,65 @@
 # 🐭 Mouse Escape: Q-Learning Agent
 
-This project demonstrates a **Q-learning agent** navigating a grid-based environment to reach its goal while avoiding obstacles like walls, "hell states," and teleportation tunnels. The agent learns to navigate efficiently using **reinforcement learning** with an epsilon-greedy policy.
+This project is now a **fully client-side simulation** that can be deployed as-is to
+[Netlify](https://www.netlify.com/) or any static hosting provider. A JavaScript
+implementation of the Q-learning agent trains entirely in the browser, so no
+backend services are required.
 
-## 🚀 Overview
+## 🚀 Features
 
-### Environment
-- **8x8 grid**: Agent starts at `(0, 0)` and aims to reach the goal at `(7, 7)`.
-- **Obstacles**: Walls (impassable), Hell States (negative rewards), and Teleportation Tunnels (instant movement).
+- **Interactive training controls** – configure episodes, learning rate, discount
+  factor, and epsilon schedule.
+- **Live environment visualization** – watch the 8×8 maze update as the agent
+  explores, including walls, hell states, and teleporters.
+- **Reward analytics** – a Chart.js line graph and summary stats track the
+  agent’s performance during training.
+- **Netlify-ready** – static assets (`index.html`, `style.css`, `script.js`) and a
+  minimal [`netlify.toml`](netlify.toml) publish configuration.
 
-### Rewards
-- **+10** for reaching the goal.
-- **-5** for entering Hell States.
-- **-0.01** for every move (living penalty).
+## 🧠 Environment Overview
 
-## ⚙️ Q-Learning
+- **Grid:** 8×8, with the mouse starting at `(0, 0)` and the goal at `(7, 7)`.
+- **Obstacles:**
+  - Walls (impassable)
+  - Hell states (−5 reward, terminal)
+  - Teleporters (instant relocation)
+- **Rewards:**
+  - `+10` for reaching the goal
+  - `−5` for entering a hell state
+  - `−0.01` living penalty per move
+- **Actions:** up, down, left, right
+- **Policy:** epsilon-greedy with configurable decay
 
-The agent uses Q-learning with the update formula:
-Q(s, a) = Q(s, a) + α [r + γ max_a' Q(s', a') - Q(s, a)]
-
-- **α (alpha)**: Learning rate.
-- **γ (gamma)**: Discount factor.
-- **Epsilon-Greedy Policy**: Balances exploration and exploitation, with decaying epsilon.
-
-### Actions
-- **Move Up**: Decreases y-coordinate.
-- **Move Down**: Increases y-coordinate.
-- **Move Left**: Decreases x-coordinate.
-- **Move Right**: Increases x-coordinate.
-
-## 🛠️ How to Run
-
-
+## 🛠️ Local Development
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/mouse-escape-qlearning.git
-
-2. Install dependencies:
+   cd mouse-escape-qlearning
+   ```
+2. Start a local static server (any option works). For example, using Python:
    ```bash
-   pip install -r requirements.txt
+   python -m http.server 8000
+   ```
+3. Visit the site:
+   ```bash
+   http://localhost:8000/
+   ```
 
-3. Run the simulation:
-    ```bash
-    python main.py
+Alternatively, open `index.html` directly in your browser.
 
-  📈 Future Work
-Multi-agent learning with cooperative or competitive strategies.
-Implementing deep Q-learning to improve decision-making.
+## 🌐 Deploying to Netlify
+
+1. [Create a new site from Git](https://app.netlify.com/start) and select this
+   repository.
+2. Use the defaults:
+   - **Build command:** leave empty (the project is prebuilt)
+   - **Publish directory:** `.`
+3. Deploy. Netlify will serve the static files immediately, and the Q-learning
+   simulation will run entirely in the visitor’s browser.
+
+## 📈 Future Work
+
+- Multi-agent learning with cooperative or competitive strategies
+- Deep Q-learning variations for richer state representations
+- Persistent storage for Q-tables across sessions via IndexedDB or cloud sync

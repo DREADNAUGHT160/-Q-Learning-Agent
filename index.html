@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mouse Escape Q-Learning Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>🐭 Mouse Escape: Q-Learning Agent</h1>
+    <p>
+      Train and visualize a Q-learning agent that helps a mouse escape the maze.
+      The simulation runs entirely in your browser and is ready for Netlify hosting.
+    </p>
+  </header>
+
+  <main>
+    <section class="controls">
+      <h2>Training Controls</h2>
+      <form id="training-form">
+        <label>
+          Episodes
+          <input type="number" id="episodes" min="1" value="2000" required />
+        </label>
+        <label>
+          Learning Rate (α)
+          <input type="number" id="alpha" min="0" max="1" step="0.01" value="0.2" required />
+        </label>
+        <label>
+          Discount Factor (γ)
+          <input type="number" id="gamma" min="0" max="1" step="0.01" value="0.95" required />
+        </label>
+        <label>
+          Epsilon Start
+          <input type="number" id="epsilon-start" min="0" max="1" step="0.01" value="1" required />
+        </label>
+        <label>
+          Epsilon End
+          <input type="number" id="epsilon-end" min="0" max="1" step="0.01" value="0.05" required />
+        </label>
+        <label>
+          Max Steps per Episode
+          <input type="number" id="max-steps" min="1" value="200" required />
+        </label>
+        <button type="submit" id="train-button">Train Agent</button>
+      </form>
+      <div class="status" id="status">Waiting to start training…</div>
+    </section>
+
+    <section class="visualization">
+      <h2>Environment</h2>
+      <div id="grid" class="grid" role="grid" aria-label="Maze grid"></div>
+      <div class="legend">
+        <span class="cell agent"></span> Agent Start (0, 0)
+        <span class="cell goal"></span> Goal (7, 7)
+        <span class="cell wall"></span> Wall
+        <span class="cell hell"></span> Hell State
+        <span class="cell teleporter"></span> Teleporter
+      </div>
+      <button id="play-button" disabled>Show Greedy Run</button>
+      <div class="status" id="run-status"></div>
+    </section>
+
+    <section class="metrics">
+      <h2>Training Metrics</h2>
+      <canvas id="reward-chart" width="640" height="320" aria-label="Training rewards chart"></canvas>
+      <div class="metrics-summary" id="metrics-summary"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>
+      Deploy on <a href="https://www.netlify.com/" target="_blank" rel="noopener">Netlify</a> as a static site.
+      No server-side code required.
+    </p>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js" integrity="sha384-OcmGeMNKFQjaFdVA0GuL2q79r5FhbF+6mBGo3k0gczIfC/KvDmEG+/+rHoMPAv7" crossorigin="anonymous"></script>
+  <script src="script.js"></script>
+</body>
+</html>
