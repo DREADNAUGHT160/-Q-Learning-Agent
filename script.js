@@ -36,6 +36,74 @@ const qTable = new Map();
 let trainingRewards = [];
 let rewardChart;
 
+// IndexedDB persistence
+const DB_NAME = "QlearningDB";
+const DB_VERSION = 1;
+const STORE_NAME = "qtable";
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      event.target.result.createObjectStore(STORE_NAME);
+    };
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = (event) => reject(event.target.error);
+  });
+}
+
+async function saveQTable() {
+  try {
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).put(Array.from(qTable.entries()), "qTable");
+      tx.oncomplete = resolve;
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.warn("Failed to save Q-table:", err);
+  }
+}
+
+async function loadSavedQTable() {
+  try {
+    const db = await openDB();
+    const serialized = await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readonly");
+      const request = tx.objectStore(STORE_NAME).get("qTable");
+      request.onsuccess = (e) => resolve(e.target.result);
+      request.onerror = (e) => reject(e.target.error);
+    });
+    if (serialized && serialized.length > 0) {
+      qTable.clear();
+      for (const [key, values] of serialized) {
+        qTable.set(key, values);
+      }
+      return true;
+    }
+  } catch (err) {
+    console.warn("Failed to load Q-table:", err);
+  }
+  return false;
+}
+
+async function clearSavedQTable() {
+  qTable.clear();
+  trainingRewards = [];
+  try {
+    const db = await openDB();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.objectStore(STORE_NAME).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = (e) => reject(e.target.error);
+    });
+  } catch (err) {
+    console.warn("Failed to clear Q-table:", err);
+  }
+}
+
 function stateKey([x, y]) {
   return `${x},${y}`;
 }
@@ -296,12 +364,20 @@ function resetEnvironment() {
   document.getElementById("run-status").textContent = "";
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const statusNode = document.getElementById("status");
   const playButton = document.getElementById("play-button");
   const trainButton = document.getElementById("train-button");
+  const resetButton = document.getElementById("reset-button");
 
   drawGrid(environment.start);
+
+  const loaded = await loadSavedQTable();
+  if (loaded) {
+    statusNode.textContent = `Restored Q-table from a previous session (${qTable.size} states). Ready to run or continue training.`;
+    playButton.disabled = false;
+  }
+
   updateMetrics();
 
   document
@@ -310,6 +386,7 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       playButton.disabled = true;
       trainButton.disabled = true;
+      resetButton.disabled = true;
       statusNode.textContent = "Training in progress…";
       document.getElementById("run-status").textContent = "";
 
@@ -332,10 +409,12 @@ document.addEventListener("DOMContentLoaded", () => {
         statusNode,
       });
 
+      await saveQTable();
       updateMetrics();
       resetEnvironment();
       playButton.disabled = false;
       trainButton.disabled = false;
+      resetButton.disabled = false;
     });
 
   playButton.addEventListener("click", () => {
@@ -343,5 +422,14 @@ document.addEventListener("DOMContentLoaded", () => {
     playGreedyRun().finally(() => {
       playButton.disabled = false;
     });
+  });
+
+  resetButton.addEventListener("click", async () => {
+    await clearSavedQTable();
+    playButton.disabled = true;
+    statusNode.textContent = "Q-table cleared. Waiting to start training…";
+    document.getElementById("run-status").textContent = "";
+    updateMetrics();
+    drawGrid(environment.start);
   });
 });
