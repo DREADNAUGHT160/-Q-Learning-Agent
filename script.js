@@ -40,27 +40,38 @@ let rewardChart;
 const DB_NAME = "QlearningDB";
 const DB_VERSION = 1;
 const STORE_NAME = "qtable";
+const QTABLE_KEY = "qTable";
 
-function openDB() {
+const dbPromise = new Promise((resolve, reject) => {
+  const request = indexedDB.open(DB_NAME, DB_VERSION);
+  request.onupgradeneeded = (event) => {
+    event.target.result.createObjectStore(STORE_NAME);
+  };
+  request.onsuccess = (event) => resolve(event.target.result);
+  request.onerror = (event) => reject(event.target.error);
+});
+
+function txRequest(idbRequest) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => {
-      event.target.result.createObjectStore(STORE_NAME);
-    };
-    request.onsuccess = (event) => resolve(event.target.result);
-    request.onerror = (event) => reject(event.target.error);
+    idbRequest.onsuccess = (e) => resolve(e.target.result);
+    idbRequest.onerror = (e) => reject(e.target.error);
   });
+}
+
+function txWrite(fn) {
+  return dbPromise.then((db) =>
+    new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      tx.oncomplete = resolve;
+      tx.onerror = (e) => reject(e.target.error);
+      fn(tx.objectStore(STORE_NAME));
+    })
+  );
 }
 
 async function saveQTable() {
   try {
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).put(Array.from(qTable.entries()), "qTable");
-      tx.oncomplete = resolve;
-      tx.onerror = (e) => reject(e.target.error);
-    });
+    await txWrite((store) => store.put(Array.from(qTable.entries()), QTABLE_KEY));
   } catch (err) {
     console.warn("Failed to save Q-table:", err);
   }
@@ -68,13 +79,9 @@ async function saveQTable() {
 
 async function loadSavedQTable() {
   try {
-    const db = await openDB();
-    const serialized = await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readonly");
-      const request = tx.objectStore(STORE_NAME).get("qTable");
-      request.onsuccess = (e) => resolve(e.target.result);
-      request.onerror = (e) => reject(e.target.error);
-    });
+    const db = await dbPromise;
+    const tx = db.transaction(STORE_NAME, "readonly");
+    const serialized = await txRequest(tx.objectStore(STORE_NAME).get(QTABLE_KEY));
     if (serialized && serialized.length > 0) {
       qTable.clear();
       for (const [key, values] of serialized) {
@@ -88,17 +95,9 @@ async function loadSavedQTable() {
   return false;
 }
 
-async function clearSavedQTable() {
-  qTable.clear();
-  trainingRewards = [];
+async function clearPersistedQTable() {
   try {
-    const db = await openDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, "readwrite");
-      tx.objectStore(STORE_NAME).clear();
-      tx.oncomplete = resolve;
-      tx.onerror = (e) => reject(e.target.error);
-    });
+    await txWrite((store) => store.clear());
   } catch (err) {
     console.warn("Failed to clear Q-table:", err);
   }
@@ -419,17 +418,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   playButton.addEventListener("click", () => {
     playButton.disabled = true;
+    resetButton.disabled = true;
     playGreedyRun().finally(() => {
       playButton.disabled = false;
+      resetButton.disabled = false;
     });
   });
 
   resetButton.addEventListener("click", async () => {
-    await clearSavedQTable();
+    resetButton.disabled = true;
+    await clearPersistedQTable();
+    qTable.clear();
+    trainingRewards = [];
     playButton.disabled = true;
     statusNode.textContent = "Q-table cleared. Waiting to start training…";
-    document.getElementById("run-status").textContent = "";
     updateMetrics();
-    drawGrid(environment.start);
+    resetEnvironment();
+    resetButton.disabled = false;
   });
 });
