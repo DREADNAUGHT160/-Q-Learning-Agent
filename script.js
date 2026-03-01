@@ -363,6 +363,61 @@ function resetEnvironment() {
   document.getElementById("run-status").textContent = "";
 }
 
+// ── Player game ───────────────────────────────────────────────────────────
+
+let activeTab = "play";
+let player = { pos: null, steps: 0, score: 0, active: false };
+
+function startNewGame() {
+  player.pos = [...environment.start];
+  player.steps = 0;
+  player.score = 0;
+  player.active = true;
+  document.getElementById("step-count").textContent = "0";
+  document.getElementById("play-score").textContent = "0.00";
+  document.getElementById("play-status").textContent =
+    "Use arrow keys or the D-pad to move the mouse!";
+  drawGrid(player.pos);
+}
+
+function movePlayer(actionIndex) {
+  if (!player.active) return;
+  player.pos = getNextState(player.pos, actionIndex);
+  player.steps += 1;
+  player.score += getReward(player.pos);
+  document.getElementById("step-count").textContent = player.steps;
+  document.getElementById("play-score").textContent = player.score.toFixed(2);
+  drawGrid(player.pos);
+
+  const statusEl = document.getElementById("play-status");
+  if (stateKey(player.pos) === stateKey(environment.goal)) {
+    statusEl.textContent =
+      `🎉 Escaped in ${player.steps} steps! Score: ${player.score.toFixed(2)}. Press New Game to play again.`;
+    player.active = false;
+  } else if (environment.hellStates.has(stateKey(player.pos))) {
+    statusEl.textContent =
+      `💀 Caught in a fire trap after ${player.steps} steps. Press New Game to try again.`;
+    player.active = false;
+  }
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tab);
+    btn.setAttribute("aria-selected", String(btn.dataset.tab === tab));
+  });
+  document.querySelectorAll("[data-panel]").forEach((el) => {
+    el.hidden = el.dataset.panel !== tab;
+  });
+  if (tab === "play") {
+    drawGrid(player.pos ?? environment.start);
+  } else {
+    drawGrid(environment.start);
+    if (rewardChart) requestAnimationFrame(() => rewardChart.update());
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const statusNode = document.getElementById("status");
   const playButton = document.getElementById("play-button");
@@ -371,51 +426,72 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   drawGrid(environment.start);
 
+  // ── Tab switching ────────────────────────────────────────────────────────
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
+
+  // ── Keyboard controls (play mode) ────────────────────────────────────────
+  const keyActionMap = {
+    ArrowUp: 0, w: 0, W: 0,
+    ArrowRight: 1, d: 1, D: 1,
+    ArrowDown: 2, s: 2, S: 2,
+    ArrowLeft: 3, a: 3, A: 3,
+  };
+  document.addEventListener("keydown", (e) => {
+    if (activeTab !== "play") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    const action = keyActionMap[e.key];
+    if (action === undefined) return;
+    e.preventDefault();
+    movePlayer(action);
+  });
+
+  // ── D-pad ────────────────────────────────────────────────────────────────
+  document.getElementById("btn-up").addEventListener("click", () => movePlayer(0));
+  document.getElementById("btn-right").addEventListener("click", () => movePlayer(1));
+  document.getElementById("btn-down").addEventListener("click", () => movePlayer(2));
+  document.getElementById("btn-left").addEventListener("click", () => movePlayer(3));
+
+  // ── New Game ─────────────────────────────────────────────────────────────
+  document.getElementById("new-game-button").addEventListener("click", startNewGame);
+
+  // ── Restore saved Q-table ────────────────────────────────────────────────
   const loaded = await loadSavedQTable();
   if (loaded) {
-    statusNode.textContent = `Restored Q-table from a previous session (${qTable.size} states). Ready to run or continue training.`;
+    statusNode.textContent =
+      `Restored Q-table from a previous session (${qTable.size} states). Ready to run or continue training.`;
     playButton.disabled = false;
   }
 
-  updateMetrics();
+  // ── AI: training form ────────────────────────────────────────────────────
+  document.getElementById("training-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    playButton.disabled = true;
+    trainButton.disabled = true;
+    resetButton.disabled = true;
+    statusNode.textContent = "Training in progress…";
+    document.getElementById("run-status").textContent = "";
 
-  document
-    .getElementById("training-form")
-    .addEventListener("submit", async (event) => {
-      event.preventDefault();
-      playButton.disabled = true;
-      trainButton.disabled = true;
-      resetButton.disabled = true;
-      statusNode.textContent = "Training in progress…";
-      document.getElementById("run-status").textContent = "";
-
-      const episodes = Number(document.getElementById("episodes").value);
-      const alpha = Number(document.getElementById("alpha").value);
-      const gamma = Number(document.getElementById("gamma").value);
-      const epsilonStart = Number(
-        document.getElementById("epsilon-start").value
-      );
-      const epsilonEnd = Number(document.getElementById("epsilon-end").value);
-      const maxSteps = Number(document.getElementById("max-steps").value);
-
-      await trainAgent({
-        episodes,
-        alpha,
-        gamma,
-        epsilonStart,
-        epsilonEnd,
-        maxSteps,
-        statusNode,
-      });
-
-      await saveQTable();
-      updateMetrics();
-      resetEnvironment();
-      playButton.disabled = false;
-      trainButton.disabled = false;
-      resetButton.disabled = false;
+    await trainAgent({
+      episodes:     Number(document.getElementById("episodes").value),
+      alpha:        Number(document.getElementById("alpha").value),
+      gamma:        Number(document.getElementById("gamma").value),
+      epsilonStart: Number(document.getElementById("epsilon-start").value),
+      epsilonEnd:   Number(document.getElementById("epsilon-end").value),
+      maxSteps:     Number(document.getElementById("max-steps").value),
+      statusNode,
     });
 
+    await saveQTable();
+    updateMetrics();
+    resetEnvironment();
+    playButton.disabled = false;
+    trainButton.disabled = false;
+    resetButton.disabled = false;
+  });
+
+  // ── AI: greedy run ───────────────────────────────────────────────────────
   playButton.addEventListener("click", () => {
     playButton.disabled = true;
     resetButton.disabled = true;
@@ -425,6 +501,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
+  // ── AI: reset Q-table ────────────────────────────────────────────────────
   resetButton.addEventListener("click", async () => {
     resetButton.disabled = true;
     await clearPersistedQTable();

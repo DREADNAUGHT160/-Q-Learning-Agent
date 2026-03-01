@@ -3,20 +3,62 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mouse Escape Q-Learning Simulator</title>
+  <title>Mouse Escape — Maze Game &amp; Q-Learning</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>🐭 Mouse Escape: Q-Learning Agent</h1>
-    <p>
-      Train and visualize a Q-learning agent that helps a mouse escape the maze.
-      The simulation runs entirely in your browser and is ready for Netlify hosting.
-    </p>
+    <h1>🐭 Mouse Escape</h1>
+    <p>Guide the mouse through the maze yourself, or train a Q-learning AI to solve it.</p>
   </header>
 
   <main>
-    <section class="controls">
+    <nav class="mode-tabs" role="tablist" aria-label="Game mode">
+      <button class="tab-btn active" data-tab="play" role="tab" aria-selected="true">🎮 Play</button>
+      <button class="tab-btn" data-tab="ai" role="tab" aria-selected="false">🧠 Train AI</button>
+    </nav>
+
+    <!-- Grid shared by both modes -->
+    <section class="visualization">
+      <div id="grid" class="grid" role="grid" aria-label="Maze grid" tabindex="0"></div>
+      <div class="legend">
+        <span class="cell agent" aria-hidden="true"></span> You / Agent
+        <span class="cell goal" aria-hidden="true"></span> Goal (7,7)
+        <span class="cell wall" aria-hidden="true"></span> Wall
+        <span class="cell hell" aria-hidden="true"></span> Fire Trap
+        <span class="cell teleporter" aria-hidden="true"></span> Teleporter
+      </div>
+    </section>
+
+    <!-- Play panel -->
+    <section class="panel" data-panel="play" id="panel-play">
+      <h2>Play</h2>
+      <p class="play-instructions">
+        Guide 🐭 to 🏁 using <kbd>↑ ↓ ← →</kbd> or <kbd>W A S D</kbd>.
+        Avoid 🔥 fire traps! Stepping on 🌀 teleports you.
+      </p>
+      <div class="play-stats">
+        <div class="stat-box">
+          <span>Steps</span>
+          <strong id="step-count">—</strong>
+        </div>
+        <div class="stat-box">
+          <span>Score</span>
+          <strong id="play-score">—</strong>
+        </div>
+      </div>
+      <div class="dpad" aria-label="Directional controls">
+        <button class="dpad-btn" id="btn-up" aria-label="Move up">↑</button>
+        <button class="dpad-btn" id="btn-left" aria-label="Move left">←</button>
+        <button class="dpad-btn" id="btn-right" aria-label="Move right">→</button>
+        <button class="dpad-btn" id="btn-down" aria-label="Move down">↓</button>
+      </div>
+      <div class="status" id="play-status">Press New Game to start!</div>
+      <button id="new-game-button">New Game</button>
+    </section>
+
+    <!-- AI trainer panel -->
+    <section class="panel" data-panel="ai" id="panel-ai" hidden>
       <h2>Training Controls</h2>
       <form id="training-form">
         <label>
@@ -47,26 +89,15 @@
         <button type="button" id="reset-button">Reset Q-Table</button>
       </form>
       <div class="status" id="status">Waiting to start training…</div>
-    </section>
-
-    <section class="visualization">
-      <h2>Environment</h2>
-      <div id="grid" class="grid" role="grid" aria-label="Maze grid"></div>
-      <div class="legend">
-        <span class="cell agent"></span> Agent Start (0, 0)
-        <span class="cell goal"></span> Goal (7, 7)
-        <span class="cell wall"></span> Wall
-        <span class="cell hell"></span> Hell State
-        <span class="cell teleporter"></span> Teleporter
-      </div>
       <button id="play-button" disabled>Show Greedy Run</button>
       <div class="status" id="run-status"></div>
     </section>
 
-    <section class="metrics">
+    <!-- Metrics panel (AI tab only) -->
+    <section class="panel metrics-panel" data-panel="ai" id="panel-metrics" hidden>
       <h2>Training Metrics</h2>
       <canvas id="reward-chart" width="640" height="320" aria-label="Training rewards chart"></canvas>
-      <div class="metrics-summary" id="metrics-summary"></div>
+      <div class="metrics-summary" id="metrics-summary">Train the agent to populate metrics.</div>
     </section>
   </main>
 
